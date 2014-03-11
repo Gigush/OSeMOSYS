@@ -20,7 +20,7 @@ set	EMISSION			:=	CO2;
 set	TECHNOLOGY			:=	tElCo	tElNu	tElHy	tElPu	tElDi 	impDi	impCo	impOil	impUran		riv;
 		
 #set	FUEL			:=	fDSL	fELC	fCOAL	fHYD	fOIL	fURN	;
-set		FUEL			:=	fDSL	fELC	fCOAL	fHYD	fOIL	fURN;								
+set	FUEL				:=	fDSL	fELC	fCOAL	fHYD	fOIL	fURN;								
 set	YEAR				:=	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034;
 set	TIMESLICE			:=	ID	IN	SD	SN	WD	WN	;															
 set	MODE_OF_OPERATION	:=	1 2	;																				
@@ -36,7 +36,7 @@ set DAYTYPE	:=	1	;
 #  DAILYTIMEBRACKET (Use consecutive numbers only, i.e, 1,2,3,4!, e.g., 1 = first hour of day, 2 = 2nd hour of day, etc. The time brackets with the higher numbers follow those with lower numbers)	
 set DAILYTIMEBRACKET	:=	1	2	;
 #
-set	STORAGE	:=	DAM	;																				
+set	STORAGE	:=	DAM, BTRY	;																				
 #
 param DiscountRate default 0.05 :=;
 #
@@ -44,7 +44,7 @@ param DiscountRate default 0.05 :=;
 param DepreciationMethod default 1 :=;
 
 #																								
-param	YearSplit	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+param	YearSplit	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034 :=
 ID						0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	
 IN						0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	
 SD						0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	
@@ -57,12 +57,12 @@ param	AccumulatedAnnualDemand	default	0	:=	;
 																								
 #																								
 param	SpecifiedAnnualDemand	default	0	:=																				
-	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034 :=
 fELC					416.4 	418.1 	419.8 	421.4 	423.1 	424.8 	426.5 	428.2 	429.9 	431.7 	433.4 	435.1 	436.9 	438.6 	440.4 	442.1 	443.9 	445.7 	447.4 	449.2 	451.0 ;
 																								
 #																								
 param	SpecifiedDemandProfile	default	0	:=																				
-	[NO,fELC,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+	[NO,fELC,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034 :=
 ID						0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	
 IN						0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	
 SD						0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0	
@@ -315,19 +315,19 @@ param DaySplit default 0.00137 :=;
 #
 # TechnologyToStorage{r in REGION, t in TECHNOLOGY, s in STORAGE, m in MODE_OF_OPERATION}	
 param	TechnologyToStorage	default	0	:=																				
-	[NO,*,*,2]		:	DAM	:=																			
-tElPu					1	;																			
+	[NO,*,*,2]		:	DAM		BTRY:=																			
+tElPu					0.9		0.8;																			
 #
 # TechnologyFromStorage{r in REGION, t in TECHNOLOGY, s in STORAGE, m in MODE_OF_OPERATION}																									
 param	TechnologyFromStorage	default	0	:=																				
-	[NO,*,*,1]		:	DAM	:=																			
-tElPu					1	;																			
+	[NO,*,*,1]		:	DAM		BTRY:=																			
+tElPu					0.9		0.8;																			
 #																										
 # StorageLevelStart{r in REGION, s in STORAGE}																											
 # At beginning of first year. Attention: if zero, OSeMOSYS will use the first time slices in the entire first day type in the entire first season to fill the storage. 																											
 # To avoid OSeMOSYS taking a whole part of a season to fill up the storage, and to avoid defining smaller seasons, set it to zero, run the model, and check the StorageLevelYearStart 																											
 # variable of the following year and use a similar value for StorageLevelStart. Alternatively, model a few years before the first year of your interest.																											
-param StorageLevelStart default 999:=																											
+param StorageLevelStart default 0:=																											
 ;																											
 # DaysInDayType{ls in SEASON, ld in DAYTYPE, y in YEAR};																											
 # Number of days for each day type within a week, i.e., out of 7 																											
