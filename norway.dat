@@ -1,0 +1,369 @@
+#
+#	Energy Model for NO
+#
+#	Kristoffer Lorentsen
+#	March 2014
+#																		
+#	Energy and demands in PJ/a																							
+#	Power plants in GW																							
+#	Investment and Fixed O&M Costs: Power plant: Million $ / GW (//$/kW)																							
+#	Other plant costs: Million $/PJ/a																							
+#	Variable O&M (& Import) Costs: Million $ / PJ (//$/GJ)																							
+#
+#****************************************																																
+param	AnnualExogenousEmission			default	0		:=	;																												
+param	AnnualEmissionLimit				default	9999	:=	;
+param	ModelPeriodExogenousEmission	default	0		:=	;																												
+param	ModelPeriodEmissionLimit		default	9999	:=	;
+#****************************************																							
+set	EMISSION			:=	CO2;																			
+set	TECHNOLOGY			:=	tElCo	tElNu	tElHy	tElPu	tElDi 	impDi	impCo	impOil	impUran		riv;
+		
+#set	FUEL			:=	fDSL	fELC	fCOAL	fHYD	fOIL	fURN	;
+set		FUEL			:=	fDSL	fELC	fCOAL	fHYD	fOIL	fURN;								
+set	YEAR				:=	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034;
+set	TIMESLICE			:=	ID	IN	SD	SN	WD	WN	;															
+set	MODE_OF_OPERATION	:=	1 2	;																				
+set	REGION				:=	NO	;
+#																		
+#  SEASON (Use consecutive numbers only, i.e, 1,2,3,4!, e.g., 1 = winter, 2 = spring, 3 = summer, 4 = autumn. The seasons with the higher number follow those with lower numbers.) 
+#  Note: in the NO case, energy is not stored from one season to another. Rather, the available capacity is assumed to be infinite. Therefore, it can be assumed that the intermediate season is between winter and summer without any consequences for the model results (and not both, between winter and summer, and between summer and winter).
+set SEASON	:=	1	2	3	;
+#
+#  DAYTYPE (Use consecutive numbers only, i.e, 1,2,3,4!, e.g., 1 = weekdays, 2 = weekends. The weekdays with the higher numbers follow those with lower numbers.)
+set DAYTYPE	:=	1	;
+#
+#  DAILYTIMEBRACKET (Use consecutive numbers only, i.e, 1,2,3,4!, e.g., 1 = first hour of day, 2 = 2nd hour of day, etc. The time brackets with the higher numbers follow those with lower numbers)	
+set DAILYTIMEBRACKET	:=	1	2	;
+#
+set	STORAGE	:=	DAM	;																				
+#
+param DiscountRate default 0.05 :=;
+#
+# DepreciationMethod; equal to 1 for Sinking Fund and 2 for Straight Line Depreciation
+param DepreciationMethod default 1 :=;
+
+#																								
+param	YearSplit	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	
+IN						0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	
+SD						0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	
+SN						0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	0.0833	
+WD						0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	0.3333	
+WN						0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	0.1667	;
+																								
+#																								
+param	AccumulatedAnnualDemand	default	0	:=	;
+																								
+#																								
+param	SpecifiedAnnualDemand	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+fELC					416.4 	418.1 	419.8 	421.4 	423.1 	424.8 	426.5 	428.2 	429.9 	431.7 	433.4 	435.1 	436.9 	438.6 	440.4 	442.1 	443.9 	445.7 	447.4 	449.2 	451.0 ;
+																								
+#																								
+param	SpecifiedDemandProfile	default	0	:=																				
+	[NO,fELC,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	0.12	
+IN						0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	0.06	
+SD						0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0	
+SN						0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0	
+WD						0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	0.5467	
+WN						0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	0.2733	;
+																								
+
+#																								
+param	CapacityToActivityUnit	default	1	:	tElCo		tElNu		tElHy		tElPu		tElDi		:=														
+NO												31.56		31.56		31.56		31.56		31.56	;														
+																								
+#																								
+param	TechWithCapacityNeededToMeetPeakTS	default	0	:	tElCo	tElNu	tElHy	tElPu	tElDi	:=														
+NO															1		1		1		1		1	;														
+																	
+#																								
+param	InputActivityRatio	default	0	:=																				
+	[NO,*,fDSL,1,*]	:	2014			2015			2016			2017			2018			2019			2020			2021			2022			2023			2024			2025			2026			2027			2028			2029			2030			2031			2032			2033			2034	:=
+tElDi							3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4				3.4		
+																																																
+	[NO,*,fCOAL,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo					3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	
+																								
+	[NO,*,fHYD,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElHy					3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	3.125	
+																								
+	[NO,*,fURN,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElNu					1		1		1		1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	1	
+																								
+	[NO,*,fELC,2,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElPu					1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	1.3889	;
+																								
+# 																								
+param	OutputActivityRatio	default	0	:=																				
+
+																			
+	[NO,*,fDSL,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+impDi					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+																								
+	[NO,*,fELC,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElNu					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1
+tElHy					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElPu					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElDi					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1
+																								
+																								
+	[NO,*,fCOAL,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+impCo					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+																								
+	[NO,*,fHYD,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+riv						1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+																								
+	[NO,*,fOIL,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+impOil					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+																								
+	[NO,*,fURN,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+impUran					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		;
+																								
+#																								
+param	FixedCost	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40		40	
+tElNu				500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500		500	
+tElHy				75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75		75	
+tElPu				30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30	
+tElDi				30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30		30	;
+																								
+#																								
+param	CapitalCost	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				1400	1390	1380	1370	1360	1350	1340	1330	1320	1310	1300	1290	1280	1270	1260	1250	1240	1230	1220	1210	1200	
+tElNu				5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	5000	
+#tElHy				3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	3000	
+tElPu				900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900		900	
+tElDi				1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	1000	
+impDi				0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		
+impCo				0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		
+impOil				0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		
+impUran				0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		
+riv					0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0 ;
+																								
+#																								
+param	VariableCost	default	0.00001	:=																				
+	[NO,*,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3		0.3	
+tElNu				1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5		1.5	
+tElDi				0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4		0.4	
+impDi				10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10		10	
+impCo				2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2	
+impOil				8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8		8	
+impUran				2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2		2;
+																								
+#																								
+param	ResidualCapacity 	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				0.5		0.5		0.5		0.4		0.4		0.4		0.4		0.4		0.4		0.3		0.32	0.3		0.3		0.3		0.3		0.2		0.2		0.2		0.2		0.2		0.15	
+tElNu				0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0	
+tElHy				0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1		0.1	
+tElPu				0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5		0.5	
+tElDi				0.3		0.3		0.29	0.29	0.28	0.28	0.27	0.27	0.26	0.26	0.25	0.26	0.26	0.27	0.27	0.28	0.28	0.29	0.29	0.3		0.2	;
+
+																								
+#																								
+param	AvailabilityFactor	default	1	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				0		0		0		0		0		0		0		1		1		1		1		1		1		1		1		1		1		1		1		1		1	;
+																								
+#																								
+param	CapacityFactor	default	1	:=																				
+	[NO,tElCo,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8	
+IN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+SD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+SN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+																								
+	[NO,tElNu,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+IN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+SD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8	
+SN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8	
+																								
+	[NO,tElHy,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+IN						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+SD						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+SN						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+WD						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+WN						0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	0.27	
+																								
+	[NO,tElPu,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+IN						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+SD						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+SN						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+WD						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+WN						0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	0.17	
+																								
+	[NO,tElDi,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+ID						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+IN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+SD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8	
+SN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WD						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		
+WN						0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		0.8		;
+																								
+#																								
+param	EmissionActivityRatio	default	0	:=																				
+	[NO,*,CO2,1,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+impDi					0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	
+impCo					0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	0.089	
+impOil					0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075	0.075 ;
+																								
+#																								
+param	EmissionsPenalty			:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+CO2					0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0		0	;
+																								
+#																								
+param	ReserveMarginTagFuel	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+fELC					1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	;
+																								
+#																								
+param	ReserveMargin	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+NO							1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	1.18	;
+																								
+#																								
+param	ReserveMarginTagTechnology	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElCo				1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElNu				1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElHy				1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElPu				1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	
+tElDi				1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1		1	;
+																								
+#																								
+param	OperationalLife	default	1	:	tElCo	tElNu	tElHy	tElPu	tElDi	:=							
+NO										40		40		100		100		40	;							
+																								
+#																								
+param	TotalAnnualMaxCapacity	default	99999	:=																				
+	[NO,*,*]	:		2014		2015		2016		2017		2018		2019		2020		2021		2022		2023		2024		2025		2026		2027		2028		2029		2030		2031		2032		2033		2034	:=
+tElHy					32			32			32			33			33			33			33			33			33			33			33			33			33			33			33			33			33			33			33			33			33	
+tElPu					3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3			3	;
+																								
+#																								
+param	TotalAnnualMinCapacity	default	0	:=																				
+	[NO,*,*]	:	2014	2015	2016	2017	2018	2019	2020	2021	2022	2023	2024	2025	2026	2027	2028	2029	2030	2031	2032	2033	2034:=
+tElHy				0.13	0.14	0.14	0.15	0.15	0.15	0.16	0.16	0.16	0.16	0.17	0.2		0.2		0.2		0.2		0.2		0.2		0.2		0.2		0.2		0.21	;
+
+#																								
+param	TotalAnnualMaxCapacityInvestment	default	99999	:=	;																			
+#																								
+param	TotalAnnualMinCapacityInvestment	default	0	:=	;																			
+#																								
+param	TotalTechnologyAnnualActivityUpperLimit	default	99999	:=	;																			
+#																								
+param	TotalTechnologyAnnualActivityLowerLimit	default	0	:=	;																			
+#																								
+param	TotalTechnologyModelPeriodActivityUpperLimit	default	99999	:=	;																			
+#																								
+param	TotalTechnologyModelPeriodActivityLowerLimit	default	0	:=	;																			
+#																								
+param	RETagTechnology	default	0	:=	;																			
+#																								
+param	RETagFuel	default	0	:=	;																			
+#																								
+param	REMinProductionTarget	default	0	:=	;																			
+#																								
+# Conversionls{l in TIMESLICE, ls in SEASON}																											
+# Set equal to 1 to assign a particular time slice to a season. Set equal to 0 in order not to assign a particular time slice to a season.																											
+param Conversionls default 0 :=																											
+[*,*]:	1	2	3	:=
+ID		0	1	0
+IN		0	1	0
+SD		0	0	1
+SN		0	0	1
+WD		1	0	0
+WN		1	0	0	;																											
+# Conversionld{l in TIMESLICE, ld in DAYTYPE}				
+# Set equal to 1 to assign a particular time slice to a day type. Set equal to 0 in order not to assign a particular time slice to a day type.				
+param	Conversionld	default	0	:=
+[*,*]:	1	:=
+ID		1			
+IN		1			
+SD		1			
+SN		1			
+WD		1			
+WN		1	;
+# Conversionlh{l in TIMESLICE, lh in DAILYTIMEBRACKET} 				
+# Set equal to 1 to assign a particular time slice to a daily time bracket. Set equal to 0 in order not to assign a particular time slice to a daily time bracket.				
+param	Conversionlh	default	0	:=
+[*,*]:	1	2	:=
+ID		1	0		
+IN		0	1		
+SD		1	0		
+SN		0	1		
+WD		1	0		
+WN		0	1	;
+#
+# DaySplit{lh in DAILYTIMEBRACKET, y in YEAR};																											
+# The length of one time bracket in one specific day as a fraction of the year, e.g., when distinguishing between days and night: 12h/(24h*365d)																											
+param DaySplit default 0.00137 :=;	
+#
+# TechnologyToStorage{r in REGION, t in TECHNOLOGY, s in STORAGE, m in MODE_OF_OPERATION}	
+param	TechnologyToStorage	default	0	:=																				
+	[NO,*,*,2]		:	DAM	:=																			
+tElPu					1	;																			
+#
+# TechnologyFromStorage{r in REGION, t in TECHNOLOGY, s in STORAGE, m in MODE_OF_OPERATION}																									
+param	TechnologyFromStorage	default	0	:=																				
+	[NO,*,*,1]		:	DAM	:=																			
+tElPu					1	;																			
+#																										
+# StorageLevelStart{r in REGION, s in STORAGE}																											
+# At beginning of first year. Attention: if zero, OSeMOSYS will use the first time slices in the entire first day type in the entire first season to fill the storage. 																											
+# To avoid OSeMOSYS taking a whole part of a season to fill up the storage, and to avoid defining smaller seasons, set it to zero, run the model, and check the StorageLevelYearStart 																											
+# variable of the following year and use a similar value for StorageLevelStart. Alternatively, model a few years before the first year of your interest.																											
+param StorageLevelStart default 999:=																											
+;																											
+# DaysInDayType{ls in SEASON, ld in DAYTYPE, y in YEAR};																											
+# Number of days for each day type within a week, i.e., out of 7 																											
+param DaysInDayType default 7:=																											
+;																											
+# StorageMaxChargeRate{r in REGION, s in STORAGE}; Unit: GW																											
+param StorageMaxChargeRate default 99:=																											
+;																											
+# StorageMaxDischargeRate{r in REGION, s in STORAGE}; Unit: GW																											
+param StorageMaxDischargeRate default 99:=																											
+;																											
+# MinStorageCharge{r in REGION, s in STORAGE, y in YEAR}; Unit: fraction of MaxStorageCharge, i.e., between 0.00 and 0.99																											
+param MinStorageCharge default 0. := 																											
+;																											
+# OperationalLifeStorage{r in REGION, s in STORAGE, y in YEAR}; Unit: years																											
+param OperationalLifeStorage default			99	:=																							
+;																											
+# CapitalCostStorage{r in REGION, s in STORAGE, y in YEAR}; Unit: USD/GWa																											
+param CapitalCostStorage default 			0	:=																							
+;																											
+# DiscountRateStorage{r in REGION, s in STORAGE}; Unit: fraction																											
+param DiscountRateStorage default			0	:=																							
+;																											
+# ResidualStorageCapacity{r in REGION, s in STORAGE, y in YEAR}; 
+# Storage capacity which is available from before the modelling period, or which is know to become available in a specific year. Unit: GWa																											
+param ResidualStorageCapacity default			999	:=																							
+;
+# CapacityOfOneTechnologyUnit{r in REGION, t in TECHNOLOGY, y in YEAR}; Unit: GW
+# Defines the minimum size of one capacity addition. If set to zero, no mixed integer linear programming (MILP) is used and computational time will decrease.																		
+param CapacityOfOneTechnologyUnit default	0	:=	;
+#
+# TradeRoute{r in REGION, rr in REGION, f in FUEL, y in YEAR}
+# Defines which region r is linked with which region rr in order to enable or disable trading of a specific fuel. Unit: Fraction, either 1 or 0
+# 1 defines a trade link and 0 ensuring that no trade occurs. Values inbetween are not allowed. If r is linked to rr, rr has also to be linked with r.
+# I.e., for one specific year and fuel, this parameter is entered as a symmetric matrix (with a diagonal of zeros).
+param TradeRoute default	0 :=
+;																											
+end;
+																							
